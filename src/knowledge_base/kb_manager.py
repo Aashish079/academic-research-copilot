@@ -1,5 +1,22 @@
 """
-Knowledge Base Manager for MindsDB integration
+Knowledge Base Manager for MindsDB integration.
+
+This module provides the KBManager class for managing MindsDB Knowledge Bases,
+including creation, connection, data insertion, and status monitoring.
+
+Key Features:
+    - MindsDB server connection management
+    - DuckDB database connection integration
+    - Knowledge Base lifecycle management (create, retrieve, delete)
+    - Paper insertion with automatic embedding generation
+    - Support for both async and synchronous operations
+
+Example:
+    >>> manager = KBManager(mindsdb_url="http://localhost:47334")
+    >>> manager.connect()
+    >>> manager.create_database_connection("duckdb_papers")
+    >>> manager.create_knowledge_base_sync("academic_kb", "gemini")
+    >>> manager.insert_papers_into_kb("academic_kb", "duckdb_papers")
 """
 import mindsdb_sdk
 from typing import Dict, Any, List, Optional

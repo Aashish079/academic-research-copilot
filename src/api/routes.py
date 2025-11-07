@@ -1,3 +1,33 @@
+"""
+FastAPI routes for Academic Research Copilot API.
+
+This module defines the REST API endpoints for searching academic papers
+using semantic search powered by MindsDB Knowledge Base.
+
+Endpoints:
+    Health Check:
+        - GET /health: API health status
+    
+    Search:
+        - POST /search: Basic semantic search with query string
+        - POST /search/semantic: Semantic search with relevance threshold
+        - POST /search/hybrid: Hybrid search with metadata filters
+        - GET /papers/{entry_id}: Get specific paper by ID
+
+Features:
+    - Pydantic request/response validation
+    - Comprehensive error handling with specific HTTP status codes
+    - Input validation and sanitization
+    - Async operations for better performance
+
+Example:
+    >>> # Search for papers
+    >>> POST /api/search
+    >>> {
+    >>>     "query": "machine learning",
+    >>>     "limit": 10
+    >>> }
+"""
 from fastapi import APIRouter, HTTPException
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field

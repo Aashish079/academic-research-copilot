@@ -1,5 +1,27 @@
 """
-Query functions for MindsDB Knowledge Base semantic search
+Query functions for MindsDB Knowledge Base semantic search.
+
+This module provides functions for querying academic papers using MindsDB's
+Knowledge Base with semantic search capabilities. It includes fallback mechanisms
+to DuckDB for resilience and supports various search strategies.
+
+Key Features:
+    - Semantic search using MindsDB Knowledge Base with vector embeddings
+    - Hybrid search combining semantic similarity and metadata filters
+    - DuckDB fallback for offline or error scenarios
+    - SQL injection protection with input sanitization
+    - Async/sync operation support
+    
+Search Methods:
+    - query_academic_papers: Basic semantic search with limit
+    - semantic_search: Search with relevance threshold filtering
+    - hybrid_search: Semantic search + metadata filters (authors, year, categories)
+    - get_paper_by_id: Retrieve specific paper by entry ID
+
+Example:
+    >>> papers = await query_academic_papers("machine learning", limit=10)
+    >>> filtered = await semantic_search("neural networks", threshold=0.8)
+    >>> results = await hybrid_search("AI", metadata_filters={"year": 2020})
 """
 from typing import List, Dict, Any, Optional
 import asyncio
