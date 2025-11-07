@@ -8,8 +8,16 @@ import mindsdb_sdk
 import os
 
 
-def get_mindsdb_connection(url: str = None):
-    """Get MindsDB connection"""
+def get_mindsdb_connection(url: Optional[str] = None) -> mindsdb_sdk.Server:
+    """
+    Get MindsDB connection
+    
+    Args:
+        url: MindsDB server URL. If None, uses environment variables.
+        
+    Returns:
+        Connected MindsDB server instance
+    """
     if url is None:
         # Use environment variables if available
         mindsdb_host = os.getenv("MINDSDB_HOST", "localhost")
@@ -34,10 +42,26 @@ async def query_academic_papers(query: str, limit: int = 10) -> List[Dict[str, A
 
 
 def _query_papers_sync(query: str, limit: int) -> List[Dict[str, Any]]:
-    """Synchronous implementation of paper query - uses MindsDB Knowledge Base for semantic search"""
+    """
+    Synchronous implementation of paper query - uses MindsDB Knowledge Base for semantic search
+    
+    Args:
+        query: The search query string
+        limit: Maximum number of results to return
+        
+    Returns:
+        List of paper dictionaries with metadata and relevance scores
+        
+    Note:
+        Falls back to DuckDB text search if MindsDB KB is unavailable
+    """
     try:
         # Connect to MindsDB
         server = get_mindsdb_connection()
+        
+        # Sanitize query input to prevent SQL injection
+        # Escape single quotes by doubling them
+        safe_query = query.replace("'", "''")
         
         # Query the Knowledge Base for semantic search
         # MindsDB will use vector embeddings to find semantically similar papers
@@ -52,7 +76,7 @@ def _query_papers_sync(query: str, limit: int) -> List[Dict[str, Any]]:
             categories,
             distance as relevance_score
         FROM academic_kb
-        WHERE content = '{query}'
+        WHERE content = '{safe_query}'
         LIMIT {limit};
         """
         
@@ -96,6 +120,9 @@ def _query_papers_sync(query: str, limit: int) -> List[Dict[str, Any]]:
             conn = duckdb.connect(db_path, read_only=True)
             
             # Search papers using simple text matching on title and summary
+            # Sanitize query to prevent SQL injection
+            safe_query = query.replace("'", "''")
+            
             sql_query = f"""
             SELECT 
                 entry_id,
@@ -106,9 +133,9 @@ def _query_papers_sync(query: str, limit: int) -> List[Dict[str, Any]]:
                 pdf_url,
                 categories
             FROM papers
-            WHERE LOWER(title) LIKE LOWER('%{query}%') 
-               OR LOWER(summary) LIKE LOWER('%{query}%')
-               OR LOWER(categories) LIKE LOWER('%{query}%')
+            WHERE LOWER(title) LIKE LOWER('%{safe_query}%') 
+               OR LOWER(summary) LIKE LOWER('%{safe_query}%')
+               OR LOWER(categories) LIKE LOWER('%{safe_query}%')
             LIMIT {limit};
             """
             
@@ -169,10 +196,25 @@ async def semantic_search(query: str, threshold: float = 0.7) -> List[Dict[str, 
 
 
 def _semantic_search_sync(query: str, threshold: float) -> List[Dict[str, Any]]:
-    """Synchronous implementation of semantic search - uses MindsDB KB with relevance filtering"""
+    """
+    Synchronous implementation of semantic search - uses MindsDB KB with relevance filtering
+    
+    Args:
+        query: The search query string
+        threshold: Minimum relevance score (0.0-1.0) to include in results
+        
+    Returns:
+        List of paper dictionaries filtered by relevance threshold
+        
+    Note:
+        Falls back to basic query with post-filtering if MindsDB KB fails
+    """
     try:
         # Use MindsDB Knowledge Base for semantic search with relevance threshold
         server = get_mindsdb_connection()
+        
+        # Sanitize query input
+        safe_query = query.replace("'", "''")
         
         # Query with relevance filter
         # MindsDB Knowledge Base returns 'distance' which we convert to relevance score
@@ -188,7 +230,7 @@ def _semantic_search_sync(query: str, threshold: float) -> List[Dict[str, Any]]:
             categories,
             distance
         FROM academic_kb
-        WHERE content = '{query}'
+        WHERE content = '{safe_query}'
           AND relevance >= {threshold}
         LIMIT 50;
         """
@@ -244,10 +286,26 @@ async def hybrid_search(
 
 
 def _hybrid_search_sync(query: str, metadata_filters: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Synchronous implementation of hybrid search - MindsDB KB with metadata filters"""
+    """
+    Synchronous implementation of hybrid search - MindsDB KB with metadata filters
+    
+    Args:
+        query: The search query string
+        metadata_filters: Dictionary of filters (e.g., {'authors': 'Smith', 'year': 2020})
+        
+    Returns:
+        List of paper dictionaries matching both semantic similarity and metadata filters
+        
+    Note:
+        Supports filters: 'authors' (substring match), 'year' (>=), 'categories' (substring match)
+        Falls back to DuckDB with SQL filters, then to post-filtering if both fail
+    """
     try:
         # Use MindsDB Knowledge Base for semantic search
         server = get_mindsdb_connection()
+        
+        # Sanitize query input
+        safe_query = query.replace("'", "''")
         
         # Build SQL query with metadata filters
         base_query = f"""
@@ -261,7 +319,7 @@ def _hybrid_search_sync(query: str, metadata_filters: Optional[Dict[str, Any]]) 
             categories,
             distance
         FROM academic_kb
-        WHERE content = '{query}'
+        WHERE content = '{safe_query}'
         """
         
         # Add metadata filters
@@ -328,99 +386,105 @@ def _hybrid_search_sync(query: str, metadata_filters: Optional[Dict[str, Any]]) 
         print(f"   Falling back to DuckDB search with filters...")
         
         # Fallback to DuckDB search with filters
-    try:
-        import duckdb
-        import os
-        
-        # Get database path
-        db_path = os.getenv('DUCKDB_PATH', '/app/data/academic_papers.duckdb')
-        conn = duckdb.connect(db_path, read_only=True)
-        
-        # Build SQL query with filters
-        base_query = f"""
-        SELECT 
-            entry_id,
-            title,
-            summary,
-            authors,
-            published_date,
-            pdf_url,
-            categories
-        FROM papers
-        WHERE (LOWER(title) LIKE LOWER('%{query}%') 
-           OR LOWER(summary) LIKE LOWER('%{query}%')
-           OR LOWER(categories) LIKE LOWER('%{query}%'))
-        """
-        
-        # Add metadata filters
-        if metadata_filters:
-            if 'authors' in metadata_filters:
-                base_query += f" AND LOWER(authors) LIKE LOWER('%{metadata_filters['authors']}%')"
+        try:
+            import duckdb
+            import os
             
-            if 'year' in metadata_filters:
-                base_query += f" AND CAST(strftime(published_date, '%Y') AS INTEGER) >= {metadata_filters['year']}"
+            # Get database path
+            db_path = os.getenv('DUCKDB_PATH', '/app/data/academic_papers.duckdb')
+            conn = duckdb.connect(db_path, read_only=True)
             
-            if 'categories' in metadata_filters:
-                base_query += f" AND LOWER(categories) LIKE LOWER('%{metadata_filters['categories']}%')"
-        
-        base_query += " LIMIT 50;"
-        
-        result = conn.execute(base_query).fetchdf()
-        conn.close()
-        
-        # Convert to list of dictionaries
-        papers = []
-        for _, row in result.iterrows():
-            paper = {
-                "entry_id": row['entry_id'],
-                "title": row['title'],
-                "summary": row['summary'],
-                "authors": row['authors'],
-                "published_date": str(row['published_date']) if row['published_date'] else None,
-                "pdf_url": row['pdf_url'],
-                "categories": row['categories'],
-                "relevance_score": 0.85
-            }
-            papers.append(paper)
-        
-        print(f"✓ Found {len(papers)} papers with filters")
-        return papers
-        
-    except Exception as e:
-        print(f"⚠️  Error in hybrid search: {e}")
-        # Fallback to basic query with post-filtering
-        results = _query_papers_sync(query, 50)
-        
-        if metadata_filters:
-            filtered_results = []
-            for result in results:
-                match = True
+            # Sanitize query input
+            safe_query = query.replace("'", "''")
+            
+            # Build SQL query with filters
+            base_query = f"""
+            SELECT 
+                entry_id,
+                title,
+                summary,
+                authors,
+                published_date,
+                pdf_url,
+                categories
+            FROM papers
+            WHERE (LOWER(title) LIKE LOWER('%{safe_query}%') 
+               OR LOWER(summary) LIKE LOWER('%{safe_query}%')
+               OR LOWER(categories) LIKE LOWER('%{safe_query}%'))
+            """
+            
+            # Add metadata filters
+            if metadata_filters:
+                if 'authors' in metadata_filters:
+                    safe_author = metadata_filters['authors'].replace("'", "''")
+                    base_query += f" AND LOWER(authors) LIKE LOWER('%{safe_author}%')"
                 
-                if "authors" in metadata_filters:
-                    author_filter = metadata_filters["authors"].lower()
-                    if author_filter not in result.get("authors", "").lower():
-                        match = False
+                if 'year' in metadata_filters:
+                    # Year is an integer, safe to use directly
+                    base_query += f" AND CAST(strftime(published_date, '%Y') AS INTEGER) >= {metadata_filters['year']}"
                 
-                if "year" in metadata_filters and match:
-                    year_filter = metadata_filters["year"]
-                    pub_date = result.get("published_date")
-                    if pub_date:
-                        if isinstance(pub_date, str):
-                            pub_year = int(pub_date[:4])
-                        elif isinstance(pub_date, (date, datetime)):
-                            pub_year = pub_date.year
-                        else:
-                            pub_year = 2024
-                        
-                        if pub_year < year_filter:
+                if 'categories' in metadata_filters:
+                    safe_category = metadata_filters['categories'].replace("'", "''")
+                    base_query += f" AND LOWER(categories) LIKE LOWER('%{safe_category}%')"
+            
+            base_query += " LIMIT 50;"
+            
+            result = conn.execute(base_query).fetchdf()
+            conn.close()
+            
+            # Convert to list of dictionaries
+            papers = []
+            for _, row in result.iterrows():
+                paper = {
+                    "entry_id": row['entry_id'],
+                    "title": row['title'],
+                    "summary": row['summary'],
+                    "authors": row['authors'],
+                    "published_date": str(row['published_date']) if row['published_date'] else None,
+                    "pdf_url": row['pdf_url'],
+                    "categories": row['categories'],
+                    "relevance_score": 0.85
+                }
+                papers.append(paper)
+            
+            print(f"✓ Found {len(papers)} papers with filters")
+            return papers
+            
+        except Exception as e:
+            print(f"⚠️  Error in DuckDB fallback search: {e}")
+            # Fallback to basic query with post-filtering
+            results = _query_papers_sync(query, 50)
+            
+            if metadata_filters:
+                filtered_results = []
+                for result in results:
+                    match = True
+                    
+                    if "authors" in metadata_filters:
+                        author_filter = metadata_filters["authors"].lower()
+                        if author_filter not in result.get("authors", "").lower():
                             match = False
+                    
+                    if "year" in metadata_filters and match:
+                        year_filter = metadata_filters["year"]
+                        pub_date = result.get("published_date")
+                        if pub_date:
+                            if isinstance(pub_date, str):
+                                pub_year = int(pub_date[:4])
+                            elif isinstance(pub_date, (date, datetime)):
+                                pub_year = pub_date.year
+                            else:
+                                pub_year = 2024
+                            
+                            if pub_year < year_filter:
+                                match = False
+                    
+                    if match:
+                        filtered_results.append(result)
                 
-                if match:
-                    filtered_results.append(result)
+                return filtered_results
             
-            return filtered_results
-        
-        return results
+            return results
 
 
 async def get_paper_by_id(entry_id: str) -> Optional[Dict[str, Any]]:
@@ -438,7 +502,18 @@ async def get_paper_by_id(entry_id: str) -> Optional[Dict[str, Any]]:
 
 
 def _get_paper_by_id_sync(entry_id: str) -> Optional[Dict[str, Any]]:
-    """Synchronous implementation of get paper by ID - queries DuckDB directly"""
+    """
+    Synchronous implementation of get paper by ID - queries DuckDB directly
+    
+    Args:
+        entry_id: The unique identifier of the paper
+        
+    Returns:
+        Paper dictionary if found, None otherwise
+        
+    Note:
+        Falls back to sample data if database query fails
+    """
     try:
         import duckdb
         import os
@@ -446,6 +521,9 @@ def _get_paper_by_id_sync(entry_id: str) -> Optional[Dict[str, Any]]:
         # Get database path
         db_path = os.getenv('DUCKDB_PATH', '/app/data/academic_papers.duckdb')
         conn = duckdb.connect(db_path, read_only=True)
+        
+        # Sanitize entry_id to prevent SQL injection
+        safe_entry_id = entry_id.replace("'", "''")
         
         sql_query = f"""
         SELECT 
@@ -457,7 +535,7 @@ def _get_paper_by_id_sync(entry_id: str) -> Optional[Dict[str, Any]]:
             pdf_url,
             categories
         FROM papers
-        WHERE entry_id = '{entry_id}';
+        WHERE entry_id = '{safe_entry_id}';
         """
         
         result = conn.execute(sql_query).fetchdf()
@@ -495,5 +573,17 @@ def _get_paper_by_id_sync(entry_id: str) -> Optional[Dict[str, Any]]:
 
 # Legacy synchronous wrappers for backward compatibility
 def query_knowledge_base(query: str, limit: int = 10) -> List[Dict[str, Any]]:
-    """Synchronous wrapper for query_academic_papers"""
+    """
+    Synchronous wrapper for query_academic_papers
+    
+    Args:
+        query: The search query string
+        limit: Maximum number of results to return
+        
+    Returns:
+        List of paper dictionaries
+        
+    Note:
+        Provided for backward compatibility. Use query_academic_papers for new code.
+    """
     return _query_papers_sync(query, limit)

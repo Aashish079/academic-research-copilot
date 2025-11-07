@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from datetime import date
@@ -83,6 +83,10 @@ async def search_papers(request: SearchRequest):
     - **limit**: Maximum number of results to return (1-100)
     """
     try:
+        # Validate input
+        if not request.query or not request.query.strip():
+            raise HTTPException(status_code=400, detail="Query cannot be empty")
+        
         results = await query_academic_papers(request.query, request.limit)
         
         papers = [
@@ -103,7 +107,14 @@ async def search_papers(request: SearchRequest):
             results=papers,
             total_results=len(papers)
         )
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid input: {str(e)}")
     except Exception as e:
+        # Log the error for debugging
+        print(f"Error in search endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
 
@@ -116,6 +127,13 @@ async def semantic_search_papers(request: SemanticSearchRequest):
     - **threshold**: Minimum similarity score (0.0-1.0)
     """
     try:
+        # Validate input
+        if not request.query or not request.query.strip():
+            raise HTTPException(status_code=400, detail="Query cannot be empty")
+        
+        if not 0.0 <= request.threshold <= 1.0:
+            raise HTTPException(status_code=400, detail="Threshold must be between 0.0 and 1.0")
+        
         results = await semantic_search(request.query, request.threshold)
         
         papers = [
@@ -136,7 +154,12 @@ async def semantic_search_papers(request: SemanticSearchRequest):
             results=papers,
             total_results=len(papers)
         )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid input: {str(e)}")
     except Exception as e:
+        print(f"Error in semantic search endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Semantic search failed: {str(e)}")
 
 
@@ -150,6 +173,10 @@ async def hybrid_search_papers(request: HybridSearchRequest):
     - **limit**: Maximum number of results to return (1-100)
     """
     try:
+        # Validate input
+        if not request.query or not request.query.strip():
+            raise HTTPException(status_code=400, detail="Query cannot be empty")
+        
         results = await hybrid_search(request.query, request.metadata_filters)
         
         # Apply limit
@@ -173,24 +200,32 @@ async def hybrid_search_papers(request: HybridSearchRequest):
             results=papers,
             total_results=len(papers)
         )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid input: {str(e)}")
     except Exception as e:
+        print(f"Error in hybrid search endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Hybrid search failed: {str(e)}")
 
 
 @search_router.get("/papers/{entry_id}", response_model=PaperResponse)
-async def get_paper_by_id(entry_id: str):
+async def get_paper_by_id_endpoint(entry_id: str):
     """
     Get a specific paper by its entry ID
     
     - **entry_id**: The unique identifier of the paper
     """
     try:
-        # This would need to be implemented in queries.py
+        # Validate entry_id
+        if not entry_id or not entry_id.strip():
+            raise HTTPException(status_code=400, detail="Entry ID cannot be empty")
+        
         from src.knowledge_base.queries import get_paper_by_id
-        paper = await get_paper_by_id(entry_id)
+        paper = await get_paper_by_id(entry_id.strip())
         
         if not paper:
-            raise HTTPException(status_code=404, detail="Paper not found")
+            raise HTTPException(status_code=404, detail=f"Paper with ID '{entry_id}' not found")
         
         return PaperResponse(
             entry_id=paper.get("entry_id", ""),
@@ -202,5 +237,8 @@ async def get_paper_by_id(entry_id: str):
         )
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid entry ID: {str(e)}")
     except Exception as e:
+        print(f"Error in get_paper_by_id endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to retrieve paper: {str(e)}")

@@ -29,20 +29,28 @@ class KBManager:
                 self.db_path = "data/academic_papers.duckdb"
         self.server = None
         
-    def connect(self):
-        """Connect to MindsDB server"""
+    def connect(self) -> mindsdb_sdk.Server:
+        """
+        Connect to MindsDB server
+        
+        Returns:
+            Connected MindsDB server instance
+        """
         if not self.server:
             print(f"🔌 Connecting to MindsDB at {self.mindsdb_url}...")
             self.server = mindsdb_sdk.connect(self.mindsdb_url)
             print("✅ Connected to MindsDB!\n")
         return self.server
 
-    def create_database_connection(self, db_name: str = "duckdb_papers"):
+    def create_database_connection(self, db_name: str = "duckdb_papers") -> Any:
         """
         Connect DuckDB to MindsDB
         
         Args:
             db_name: Name for the database in MindsDB
+            
+        Returns:
+            MindsDB database object
         """
         server = self.connect()
         
@@ -221,13 +229,16 @@ class KBManager:
                 "error": str(e)
             }
     
-    def insert_papers_into_kb(self, kb_name: str = "academic_kb", db_name: str = "duckdb_papers"):
+    def insert_papers_into_kb(self, kb_name: str = "academic_kb", db_name: str = "duckdb_papers") -> bool:
         """
         Insert papers from DuckDB into the Knowledge Base
         
         Args:
             kb_name: Name of the Knowledge Base
             db_name: Name of the DuckDB database connection in MindsDB
+            
+        Returns:
+            True if successful, False otherwise
         """
         server = self.connect()
         
@@ -275,54 +286,3 @@ class KBManager:
     def delete_knowledge_base_sync(self, kb_name: str):
         """Delete the Knowledge Base (synchronous)"""
         return self._delete_kb_sync(kb_name)
-
-
-    async def create_knowledge_base(self, kb_name: str, schema: Dict[str, Any]):
-        """
-        Create a new Knowledge Base in MindsDB (async).
-
-        :param kb_name: Name of the Knowledge Base to be created.
-        :param schema: Schema definition for the Knowledge Base.
-        """
-        # Run in executor to avoid blocking
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, self.mindsdb.create_kb, kb_name, schema)
-
-    async def populate_knowledge_base(self, kb_name: str, data: List[Dict[str, Any]]):
-        """
-        Populate the Knowledge Base with data (async).
-
-        :param kb_name: Name of the Knowledge Base to populate.
-        :param data: Data to be inserted into the Knowledge Base.
-        """
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, self.mindsdb.insert_into, kb_name, data)
-
-    async def get_knowledge_base(self, kb_name: str):
-        """
-        Retrieve the Knowledge Base (async).
-
-        :param kb_name: Name of the Knowledge Base to retrieve.
-        :return: The Knowledge Base object.
-        """
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self.mindsdb.get_kb, kb_name)
-
-    async def delete_knowledge_base(self, kb_name: str):
-        """
-        Delete the Knowledge Base (async).
-
-        :param kb_name: Name of the Knowledge Base to delete.
-        """
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, self.mindsdb.delete_kb, kb_name)
-
-    async def update_knowledge_base(self, kb_name: str, data: List[Dict[str, Any]]):
-        """
-        Update the Knowledge Base with new data (async).
-
-        :param kb_name: Name of the Knowledge Base to update.
-        :param data: New data to be inserted into the Knowledge Base.
-        """
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, self.mindsdb.update_kb, kb_name, data)
