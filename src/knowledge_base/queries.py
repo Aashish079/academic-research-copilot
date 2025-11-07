@@ -29,6 +29,21 @@ from datetime import date, datetime
 import mindsdb_sdk
 import os
 
+from src.utils.constants import (
+    DEFAULT_SEARCH_LIMIT,
+    DEFAULT_RELEVANCE_THRESHOLD,
+    MAX_DISTANCE_FOR_NORMALIZATION,
+    DEFAULT_RELEVANCE_SCORE_FALLBACK,
+    DEFAULT_RELEVANCE_SCORE_HYBRID,
+    DEFAULT_RELEVANCE_SCORE_SAMPLE,
+    SUCCESS_SEMANTIC_MATCH,
+    SUCCESS_PAPERS_FOUND,
+    SUCCESS_FILTERED_RESULTS,
+    WARNING_KB_ERROR,
+    WARNING_FALLBACK_DUCKDB,
+    WARNING_FALLBACK_SAMPLE,
+)
+
 
 def get_mindsdb_connection(url: Optional[str] = None) -> mindsdb_sdk.Server:
     """

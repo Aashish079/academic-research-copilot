@@ -38,6 +38,24 @@ from src.knowledge_base.queries import (
     semantic_search,
     hybrid_search
 )
+from src.utils.constants import (
+    DEFAULT_SEARCH_LIMIT,
+    MAX_SEARCH_LIMIT,
+    MIN_SEARCH_LIMIT,
+    DEFAULT_RELEVANCE_THRESHOLD,
+    MIN_RELEVANCE_THRESHOLD,
+    MAX_RELEVANCE_THRESHOLD,
+    MAX_QUERY_LENGTH,
+    MIN_QUERY_LENGTH,
+    ERROR_EMPTY_QUERY,
+    ERROR_INVALID_THRESHOLD,
+    ERROR_INVALID_ENTRY_ID,
+    ERROR_PAPER_NOT_FOUND,
+    ERROR_SEARCH_FAILED,
+    HTTP_BAD_REQUEST,
+    HTTP_NOT_FOUND,
+    HTTP_INTERNAL_ERROR,
+)
 
 # Create routers
 health_router = APIRouter()
@@ -47,24 +65,24 @@ search_router = APIRouter()
 # Request/Response Models
 class SearchRequest(BaseModel):
     """Request model for search operations"""
-    query: str = Field(..., min_length=1, max_length=500, description="Search query")
-    limit: int = Field(default=10, ge=1, le=100, description="Maximum number of results")
+    query: str = Field(..., min_length=MIN_QUERY_LENGTH, max_length=MAX_QUERY_LENGTH, description="Search query")
+    limit: int = Field(default=DEFAULT_SEARCH_LIMIT, ge=MIN_SEARCH_LIMIT, le=MAX_SEARCH_LIMIT, description="Maximum number of results")
     
 
 class SemanticSearchRequest(BaseModel):
     """Request model for semantic search"""
-    query: str = Field(..., min_length=1, max_length=500, description="Search query")
-    threshold: float = Field(default=0.7, ge=0.0, le=1.0, description="Similarity threshold")
+    query: str = Field(..., min_length=MIN_QUERY_LENGTH, max_length=MAX_QUERY_LENGTH, description="Search query")
+    threshold: float = Field(default=DEFAULT_RELEVANCE_THRESHOLD, ge=MIN_RELEVANCE_THRESHOLD, le=MAX_RELEVANCE_THRESHOLD, description="Similarity threshold")
 
 
 class HybridSearchRequest(BaseModel):
     """Request model for hybrid search"""
-    query: str = Field(..., min_length=1, max_length=500, description="Search query")
+    query: str = Field(..., min_length=MIN_QUERY_LENGTH, max_length=MAX_QUERY_LENGTH, description="Search query")
     metadata_filters: Optional[Dict[str, Any]] = Field(
         default=None, 
         description="Metadata filters (e.g., {'authors': 'John Doe', 'year': 2023})"
     )
-    limit: int = Field(default=10, ge=1, le=100, description="Maximum number of results")
+    limit: int = Field(default=DEFAULT_SEARCH_LIMIT, ge=MIN_SEARCH_LIMIT, le=MAX_SEARCH_LIMIT, description="Maximum number of results")
 
 
 class PaperResponse(BaseModel):
