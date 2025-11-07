@@ -118,3 +118,27 @@ docker-compose.override.yml
 # ==========================
 *.swp
 *.swo
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+*~
+
+# Test artifacts
+.pytest_cache/
+test-results/
+.tox/
+
+# Documentation builds
+docs/_build/
+site/
+
+# Code coverage reports
+htmlcov/
+.coverage
+coverage.xml
+
+# Performance profiling
+*.prof
+*.lprof
