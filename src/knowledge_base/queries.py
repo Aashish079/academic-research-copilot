@@ -125,7 +125,7 @@ def _query_papers_sync(query: str, limit: int) -> List[Dict[str, Any]]:
             # Convert distance to relevance score (lower distance = higher relevance)
             # Normalize distance to 0-1 range (assuming distance is between 0-2)
             distance = row.get('relevance_score', 1.0)
-            relevance = max(0, min(1, 1 - (distance / 2)))
+            relevance = max(0, min(1, 1 - (distance / MAX_DISTANCE_FOR_NORMALIZATION)))
             
             paper = {
                 "entry_id": row['entry_id'],
@@ -139,12 +139,12 @@ def _query_papers_sync(query: str, limit: int) -> List[Dict[str, Any]]:
             }
             papers.append(paper)
         
-        print(f"✓ Found {len(papers)} papers semantically similar to '{query}'")
+        print(SUCCESS_SEMANTIC_MATCH.format(len(papers), query))
         return papers
         
     except Exception as e:
-        print(f"⚠️  Error querying Knowledge Base: {e}")
-        print(f"   Falling back to DuckDB text search...")
+        print(WARNING_KB_ERROR.format(e))
+        print(WARNING_FALLBACK_DUCKDB)
         
         # Fallback to DuckDB text search if KB is not available
         try:
@@ -190,16 +190,16 @@ def _query_papers_sync(query: str, limit: int) -> List[Dict[str, Any]]:
                     "published_date": str(row['published_date']) if row['published_date'] else None,
                     "pdf_url": row['pdf_url'],
                     "categories": row['categories'],
-                    "relevance_score": 0.75  # Lower score for text-based fallback
+                    "relevance_score": DEFAULT_RELEVANCE_SCORE_FALLBACK
                 }
                 papers.append(paper)
             
-            print(f"✓ Found {len(papers)} papers matching '{query}' (text search)")
+            print(SUCCESS_PAPERS_FOUND.format(len(papers)))
             return papers
             
         except Exception as db_error:
-            print(f"⚠️  Error with fallback DuckDB search: {db_error}")
-            print("  Returning sample data for demo purposes...")
+            print(WARNING_KB_ERROR.format(db_error))
+            print(WARNING_FALLBACK_SAMPLE)
             # Final fallback to sample data
             return [
                 {
@@ -211,7 +211,7 @@ def _query_papers_sync(query: str, limit: int) -> List[Dict[str, Any]]:
                     "published_date": str(date(2024, 1, 1)),
                     "pdf_url": f"https://arxiv.org/pdf/sample{i}.pdf",
                     "categories": "cs.LG, cs.AI",
-                "relevance_score": 0.95 - (i * 0.05)
+                "relevance_score": DEFAULT_RELEVANCE_SCORE_SAMPLE - (i * 0.05)
             }
             for i in range(1, min(limit + 1, 6))
         ]
@@ -279,7 +279,7 @@ def _semantic_search_sync(query: str, threshold: float) -> List[Dict[str, Any]]:
         for _, row in result.iterrows():
             # Convert distance to relevance score
             distance = row.get('distance', 1.0)
-            relevance = max(0, min(1, 1 - (distance / 2)))
+            relevance = max(0, min(1, 1 - (distance / MAX_DISTANCE_FOR_NORMALIZATION)))
             
             if relevance >= threshold:
                 paper = {
@@ -294,11 +294,11 @@ def _semantic_search_sync(query: str, threshold: float) -> List[Dict[str, Any]]:
                 }
                 papers.append(paper)
         
-        print(f"✓ Found {len(papers)} papers with relevance >= {threshold}")
+        print(SUCCESS_PAPERS_FOUND.format(len(papers)))
         return papers
         
     except Exception as e:
-        print(f"⚠️  Error in semantic search: {e}")
+        print(WARNING_KB_ERROR.format(e))
         # Fallback to basic query with filtering
         results = _query_papers_sync(query, 50)
         return [r for r in results if r.get("relevance_score", 0) >= threshold]
@@ -415,12 +415,12 @@ def _hybrid_search_sync(query: str, metadata_filters: Optional[Dict[str, Any]]) 
             }
             papers.append(paper)
         
-        print(f"✓ Found {len(papers)} papers with filters")
+        print(SUCCESS_FILTERED_RESULTS.format(len(papers)))
         return papers
         
     except Exception as e:
-        print(f"⚠️  Error in hybrid search: {e}")
-        print(f"   Falling back to DuckDB search with filters...")
+        print(WARNING_KB_ERROR.format(e))
+        print(WARNING_FALLBACK_DUCKDB)
         
         # Fallback to DuckDB search with filters
         try:
@@ -480,15 +480,15 @@ def _hybrid_search_sync(query: str, metadata_filters: Optional[Dict[str, Any]]) 
                     "published_date": str(row['published_date']) if row['published_date'] else None,
                     "pdf_url": row['pdf_url'],
                     "categories": row['categories'],
-                    "relevance_score": 0.85
+                    "relevance_score": DEFAULT_RELEVANCE_SCORE_HYBRID
                 }
                 papers.append(paper)
             
-            print(f"✓ Found {len(papers)} papers with filters")
+            print(SUCCESS_FILTERED_RESULTS.format(len(papers)))
             return papers
             
         except Exception as e:
-            print(f"⚠️  Error in DuckDB fallback search: {e}")
+            print(WARNING_KB_ERROR.format(e))
             # Fallback to basic query with post-filtering
             results = _query_papers_sync(query, 50)
             
@@ -593,7 +593,7 @@ def _get_paper_by_id_sync(entry_id: str) -> Optional[Dict[str, Any]]:
         return None
         
     except Exception as e:
-        print(f"⚠️  Error retrieving paper: {e}")
+        print(WARNING_KB_ERROR.format(e))
         # Fallback sample data
         if entry_id.startswith("arxiv-"):
             return {
