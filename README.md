@@ -3,7 +3,6 @@
   <img src="./images/mindsdblogo.webp" alt="MindsDB Logo" width="300" />
 </p>
 
-
 Find the right papers faster with hybrid semantic search over ArXiv, powered by MindsDB Knowledge Bases, DuckDB, FastAPI, and Streamlit.
 
 ## Problem statement
@@ -14,10 +13,12 @@ Researchers drown in information: keyword search misses context, and scanning do
 - Indexing them into a MindsDB Knowledge Base with vector embeddings
 - Exposing simple APIs and a web UI for semantic and hybrid (semantic + metadata) search
 
+
 Outcomes:
 - Ask natural‑language questions (e.g., “privacy in federated learning”) and retrieve relevant papers, even without exact keyword matches
 - Filter by authors, year, or categories when needed
 - Run fully locally with Docker; embeddings via Google Gemini or fall back to local sentence-transformers
+
 
 ## Architecture
 
@@ -41,9 +42,11 @@ Key files:
 
 > Deep dive: Read the blog post “[Building the Academic Research Copilot](docs/blog/academic-research-copilot.md)” for the story, key design decisions, and code/SQL walk‑throughs.
 
+
 ## Knowledge Base schema
 
 Two layers of data are used: the raw table in DuckDB and the semantic index in MindsDB.
+
 
 ### DuckDB: `papers`
 
@@ -60,6 +63,7 @@ Created by `src/data/fetch_papers.py` and `scripts/fetch_papers.py`.
 
 Note: An older helper script uses column `id`; the main pipeline uses `entry_id` consistently.
 
+
 ### MindsDB Knowledge Base: `academic_kb`
 
 Created once via SQL (see below). Content columns are embedded; metadata columns are stored alongside. MindsDB adds query-time fields like `relevance` and `distance`.
@@ -70,6 +74,7 @@ Created once via SQL (see below). Content columns are embedded; metadata columns
 - Query-time fields: `relevance` (higher is better), `distance` (lower is closer), `chunk_content`
 
 Embedding model (default in repo): Google Gemini `text-embedding-004` (free API key via `GEMINI_API_KEY`). The project also includes `sentence-transformers` for local embeddings as a fallback.
+
 
 ## Screenshots
 
@@ -83,6 +88,7 @@ Embedding model (default in repo): Google Gemini `text-embedding-004` (free API 
   <em>Semantic search results for a natural‑language query</em>
   <br />
 </p>
+
 
 ## SQL examples
 
